@@ -1,13 +1,14 @@
 import requests
 import json
 import time
-import csv
 import os
+
+from db import save_dict_2_csv, read_from_csv
 
 CSV_BASE_PATH = os.getenv('CSV_PATH', './data')
 
 
-def callback2dict(src_data: str, callback: str) -> dict:
+def format_lsjz(src_data: str, callback: str) -> dict:
     data_tmp = src_data.replace(callback, '', 1)
     if data_tmp.startswith('('):
         data_tmp = data_tmp[1:]
@@ -27,23 +28,24 @@ def save_fund_list():
     }
     url = "http://fund.eastmoney.com/js/fundcode_search.js"
     res = requests.get(url, headers=headers)
-    
+
     fund_info_sets = []
-    fund_info_src = res.text.replace('var r = [', '').replace('];', '').replace('],[', '@@').replace('"', '')[1:-1].split('@@')
+    fund_info_src = res.text.replace('var r = [', '').replace('];', '').replace(
+        '],[', '@@').replace('"', '')[1:-1].split('@@')
     for item in fund_info_src:
         token = item.split(',')
-        fund_info_sets.append({'基金代码':token[0], '拼音缩写': token[1], '基金名称': token[2], '基金类型':token[3], '拼音全称': token[4]})
+        fund_info_sets.append(
+            {'基金代码': token[0], '拼音缩写': token[1], '基金名称': token[2], '基金类型': token[3], '拼音全称': token[4]})
     # print(fund_info_sets[0])
-    
+
     data_frame = ['基金代码', '拼音缩写', '基金名称', '基金类型', '拼音全称']
 
-    with open('./data/fund_list.csv', 'w') as f:
-        writer = csv.DictWriter(f, fieldnames=data_frame)
-        writer.writeheader()
-        writer.writerows(fund_info_sets)
+    file_name = os.path.join(CSV_PATH, 'fund_list.csv')
+    save_dict_2_csv(filename=file_name,
+                    fieldnames=data_frame, data=fund_info_sets)
 
-    
-def save_fund_lsjz(code:str):
+
+def save_fund_lsjz(code: str):
     CSV_PATH = os.path.join(CSV_BASE_PATH, 'lsjz')
     if not os.path.isdir(CSV_PATH):
         os.makedirs(CSV_PATH)
@@ -65,39 +67,36 @@ def save_fund_lsjz(code:str):
     }
     r = requests.get(url, params=params, headers=headers)
 
-    data = callback2dict(r.text, callback)
-    
+    data = format_lsjz(r.text, callback)
+
     if len(data['Data']['LSJZList']) > 0:
         file_name = os.path.join(CSV_PATH, f'{code}.csv')
-        with open(file_name, 'w') as f:
-            field_name = data['Data']['LSJZList'][0].keys()
-            writer = csv.DictWriter(f=f, fieldnames=field_name)
-            
-            writer.writeheader()
-            writer.writerows(data['Data']['LSJZList'])
-    else:
-        print(code)
-        print(data['Data'])
-        print('=====================')
-        
-def save_all_fund_lsjz():
-    fund_list = []
-    data_frame = ['基金代码', '拼音缩写', '基金名称', '基金类型', '拼音全称']
-    with open('./data/fund_list.csv', 'r') as f:
-        reader = csv.DictReader(f, fieldnames=data_frame)
+        field_name = data['Data']['LSJZList'][0].keys()
+        file_data = data['Data']['LSJZList']
 
-        header_flag = True
-        
-        for row in reader:
-            if not header_flag:
-                fund_list.append(row['基金代码'])
-            else:
-                header_flag = False
-                
+        save_dict_2_csv(filename=file_name,
+                        fieldnames=field_name, data=file_data)
+    # else:
+    #     print(code)
+    #     print(data['Data'])
+    #     print('=====================')
+
+
+def save_all_fund_lsjz():
+    CSV_PATH = os.path.join(CSV_BASE_PATH, )
+    if not os.path.isdir(CSV_PATH):
+        os.makedirs(CSV_PATH)
+    file_name = os.path.join(CSV_PATH, 'fund_list.csv')
+
+    data_frame = ['基金代码', '拼音缩写', '基金名称', '基金类型', '拼音全称']
+
+    fund_list = read_from_csv(file_name, data_frame, ['基金代码'])
+
     for code in fund_list:
-        save_fund_lsjz(code)
+        save_fund_lsjz(code['基金代码'])
 
 
 if __name__ == '__main__':
     save_fund_list()
     save_all_fund_lsjz()
+    # save_fund_lsjz('000001')
