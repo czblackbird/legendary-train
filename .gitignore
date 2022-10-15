@@ -136,3 +136,6 @@ data
 
 # vscode
 .vscode
+
+# idea
+.idea
