@@ -2,6 +2,8 @@ import requests
 import json
 import time
 import os
+from multiprocessing import Pool
+
 
 from db import save_dict_2_csv, read_from_csv
 
@@ -45,10 +47,7 @@ def save_fund_list():
                     fieldnames=data_frame, data=fund_info_sets)
 
 
-def save_fund_lsjz(code: str):
-    CSV_PATH = os.path.join(CSV_BASE_PATH, 'lsjz')
-    if not os.path.isdir(CSV_PATH):
-        os.makedirs(CSV_PATH)
+def save_fund_lsjz(code: str, path: str):
 
     url = "http://api.fund.eastmoney.com/f10/lsjz"
     callback = "jQuery18306461675574671744_1588245122574"
@@ -70,7 +69,7 @@ def save_fund_lsjz(code: str):
     data = format_lsjz(r.text, callback)
 
     if len(data['Data']['LSJZList']) > 0:
-        file_name = os.path.join(CSV_PATH, f'{code}.csv')
+        file_name = os.path.join(path, f'{code}.csv')
         field_name = data['Data']['LSJZList'][0].keys()
         file_data = data['Data']['LSJZList']
 
@@ -92,8 +91,16 @@ def save_all_fund_lsjz():
 
     fund_list = read_from_csv(file_name, data_frame, ['基金代码'])
 
-    for code in fund_list:
-        save_fund_lsjz(code['基金代码'])
+    lsjz_path = os.path.join(CSV_BASE_PATH, 'lsjz')
+    if not os.path.isdir(lsjz_path):
+        os.makedirs(lsjz_path)
+
+    with Pool(10) as p:
+        p.starmap(save_fund_lsjz, [(code['基金代码'], lsjz_path)
+                  for code in fund_list])
+
+    # for code in fund_list:
+    #     save_fund_lsjz(code['基金代码'])
 
 
 if __name__ == '__main__':
